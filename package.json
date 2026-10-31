@@ -1,0 +1,27 @@
+{
+  "name": "eblib",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "description": "Scrape Ebangla Library books into clean Bengali EPUBs. Personal use only.",
+  "license": "MIT",
+  "bin": {
+    "eblib": "./src/cli.ts"
+  },
+  "scripts": {
+    "start": "bun run src/cli.ts",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "build": "bun build src/cli.ts --compile --outfile dist/eblib"
+  },
+  "dependencies": {
+    "@epubkit/core": "file:../epubkit/packages/core",
+    "cac": "^6.7.14",
+    "cheerio": "^1.2.0",
+    "domhandler": "5.0.3"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5"
+  }
+}

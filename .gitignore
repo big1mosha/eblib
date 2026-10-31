@@ -1,0 +1,6 @@
+node_modules/
+dist/
+.eblib/
+*.epub
+.DS_Store
+bun.lockb
