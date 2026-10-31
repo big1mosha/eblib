@@ -11,7 +11,9 @@ bun install
 bun run src/cli.ts --help
 ```
 
-`eblib` depends on `@epubkit/core` from the sibling `epubkit` repo (`file:../epubkit/packages/core`).
+`eblib` depends on `@epubkit/core` from the sibling `epubkit` repo
+(`file:../epubkit/packages/core`). Bun installs that dependency as a copy, so
+run `bun install` here after changing the core package.
 
 ## Usage
 
