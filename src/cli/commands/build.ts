@@ -2,6 +2,7 @@ import { EblibError, EXIT } from "../../config.ts";
 import { buildBook } from "../../build/book.ts";
 import { resolveFonts } from "../../build/fonts.ts";
 import { openWorkspace, resolveCourseId } from "../../scrape.ts";
+import { enrichWorkspace } from "../../enrich.ts";
 import {
   cacheDirFor,
   clientFor,
@@ -26,6 +27,14 @@ export async function buildCommand(target: string | undefined, flags: GlobalFlag
   const client = await clientFor(flags);
 
   try {
+    await enrichWorkspace(workspace, client, {
+      source: flags.metadataSource,
+      refreshMetadata: flags.refreshMetadata,
+      refresh: flags.refresh,
+      offline: flags.offline,
+      warn: (message) => out.warn(message),
+    });
+
     const fonts = await resolveFonts({
       client,
       cacheDir,

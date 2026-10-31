@@ -98,6 +98,7 @@ export async function buildManifest(
     series: state.metadata.series,
     source: state.metadata.source ?? state.source,
     date: state.metadata.published?.slice(0, 10),
+    publisher: state.metadata.publisher,
     cover: options.cover,
     fonts: options.fonts,
     images: options.images,

@@ -39,6 +39,8 @@ export interface GlobalFlags {
   retries?: number | string;
   maxRequests?: number | string;
   cookieFile?: string;
+  metadataSource?: string;
+  refreshMetadata?: boolean;
   title?: string;
   author?: string | string[];
 }

@@ -50,7 +50,9 @@ function globalOptions(command: ReturnType<typeof cli.command>): ReturnType<type
     .option("--timeout <ms>", "request timeout", { default: "30000" })
     .option("--retries <n>", "retry count for 5xx responses", { default: "3" })
     .option("--max-requests <n>", "request budget per run", { default: "1000" })
-    .option("--cookie-file <path>", "cookie jar path");
+    .option("--cookie-file <path>", "cookie jar path")
+    .option("--metadata-source <name>", "enrich metadata: site|openlibrary|googlebooks|none")
+    .option("--refresh-metadata", "query the metadata provider again");
 }
 
 async function guard(action: () => Promise<void>, flags: GlobalFlags): Promise<void> {

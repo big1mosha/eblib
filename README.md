@@ -73,6 +73,8 @@ A bare URL works too: `eblib <url>` runs `scrape`.
 | `--style classic\|minimal\|none` | `classic` | theme |
 | `--font <path\|none>` | Noto Serif Bengali | font control |
 | `--cover auto\|site\|generate\|none\|<path>` | `auto` | cover handling |
+| `--metadata-source site\|openlibrary\|googlebooks\|none` | `site` | enrich metadata |
+| `--refresh-metadata` | off | query the provider again |
 | `--allow-partial` | off | placeholders for failed items |
 | `--fail-fast` | off | stop on first error |
 | `--report <path>` | — | copy the scrape report |
@@ -111,6 +113,27 @@ No URL is fetched twice unless `--refresh` is passed. `book.json` is written aft
 ## Cover
 
 `--cover auto` keeps the site cover only when it is at least 800 px wide and close to 2:3. Otherwise a 1600×2400 typographic cover is generated. `sharp` is optional; without it the cover stays an SVG.
+
+## Metadata enrichment
+
+`--metadata-source openlibrary` or `--metadata-source googlebooks` fills
+`publisher`, `published`, `description` and `subjects` from a book database.
+
+```bash
+eblib scrape "<url>" --metadata-source googlebooks
+eblib build 216889 --metadata-source openlibrary --refresh-metadata
+```
+
+- The site's own values win, except `published`: the provider's book year is
+  more useful than the article timestamp.
+- A candidate must match the title (containment or token overlap) and, when
+  both sides list an author, the author too. A wrong match is worse than none,
+  so ambiguous results are dropped with a warning.
+- Open Library barely indexes Bengali titles; Google Books is the better bet.
+  Without `GOOGLE_BOOKS_API_KEY` the public endpoint is often rate limited
+  (HTTP 429); set the env var to lift the quota.
+- The result is stored in `book.json`, so later builds do not query again
+  unless `--refresh-metadata` is passed. `--offline` reads only the cache.
 
 ## Auth
 

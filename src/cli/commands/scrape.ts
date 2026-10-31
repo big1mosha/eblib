@@ -3,6 +3,7 @@ import { EblibError, EXIT } from "../../config.ts";
 import { buildBook } from "../../build/book.ts";
 import { resolveFonts } from "../../build/fonts.ts";
 import { scrapeCourse } from "../../scrape.ts";
+import { enrichWorkspace } from "../../enrich.ts";
 import { parseMetadata, parsePaging, parseStructure } from "../../site/course.ts";
 import {
   cacheDirFor,
@@ -53,6 +54,14 @@ export async function scrapeCommand(url: string | undefined, flags: GlobalFlags)
       skipTopics: flags.skipTopics,
       failFast: flags.failFast,
       selection: selectionFrom(flags),
+    });
+
+    await enrichWorkspace(workspace, client, {
+      source: flags.metadataSource,
+      refreshMetadata: flags.refreshMetadata,
+      refresh: flags.refresh,
+      offline: flags.offline,
+      warn: (message) => out.warn(message),
     });
 
     const fonts = await resolveFonts({

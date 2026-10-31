@@ -27,6 +27,9 @@ export interface BookMetadata {
   source?: string;
   description?: string;
   published?: string;
+  publisher?: string;
+  /** Which provider filled the fields above, if any. */
+  enrichment?: { source: string; matchedTitle: string; at: string };
 }
 
 export interface PagingInfo {
