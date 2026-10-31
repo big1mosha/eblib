@@ -106,6 +106,7 @@ No URL is fetched twice unless `--refresh` is passed. `book.json` is written aft
 - LearnDash paging on the site is broken (`No Pagination Match`), and LiteSpeed caches the course page without its query string.
 - When the course page lists fewer lessons than its own pager reports, `eblib` follows the "Next Lesson" chain from the last visible lesson and appends the rest. Section names for that tail are unavailable; a `structure-truncated` warning is recorded.
 - Topics that the course page hides are read from the lesson page.
+- Quizzes are not scraped: LearnDash keeps them outside the lesson content tab, so only lessons and topics become chapters.
 
 ## Cover
 
