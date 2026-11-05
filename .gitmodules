@@ -1,0 +1,3 @@
+[submodule "vendor/epubkit"]
+	path = vendor/epubkit
+	url = https://github.com/big1mosha/epubkit.git

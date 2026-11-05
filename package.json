@@ -6,16 +6,17 @@
   "description": "Scrape Ebangla Library books into clean Bengali EPUBs. Personal use only.",
   "license": "MIT",
   "bin": {
-    "eblib": "./src/cli.ts"
+    "eblib": "./src/bootstrap.ts"
   },
   "scripts": {
-    "start": "bun run src/cli.ts",
-    "test": "bun test",
-    "typecheck": "tsc --noEmit",
-    "build": "bun build src/cli.ts --compile --outfile dist/eblib"
+    "start": "bun run src/bootstrap.ts",
+    "setup": "bun run src/setup.ts",
+    "test": "bun run src/setup.ts && bun test",
+    "typecheck": "bun run src/setup.ts && tsc --noEmit",
+    "build": "bun run src/setup.ts && bun build src/cli.ts --compile --outfile dist/eblib"
   },
   "dependencies": {
-    "@epubkit/core": "file:../epubkit/packages/core",
+    "@epubkit/core": "file:./vendor/epubkit/packages/core",
     "cac": "^6.7.14",
     "cheerio": "^1.2.0",
     "domhandler": "5.0.3"

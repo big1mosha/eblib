@@ -5,7 +5,7 @@
     "": {
       "name": "eblib",
       "dependencies": {
-        "@epubkit/core": "file:../epubkit/packages/core",
+        "@epubkit/core": "file:./vendor/epubkit/packages/core",
         "cac": "^6.7.14",
         "cheerio": "^1.2.0",
         "domhandler": "5.0.3",
@@ -17,7 +17,7 @@
     },
   },
   "packages": {
-    "@epubkit/core": ["@epubkit/core@file:../epubkit/packages/core", { "dependencies": { "cheerio": "^1.2.0", "domhandler": "5.0.3", "fast-xml-parser": "^5.11.2", "fflate": "^0.8.3", "image-size": "^2.0.4", "marked": "^18.1.2" } }],
+    "@epubkit/core": ["@epubkit/core@file:vendor/epubkit/packages/core", { "dependencies": { "cheerio": "^1.2.0", "domhandler": "5.0.3", "fast-xml-parser": "^5.11.2", "fflate": "^0.8.3", "image-size": "^2.0.4", "marked": "^18.1.2" } }],
 
     "@nodable/entities": ["@nodable/entities@3.1.0", "", {}, "sha512-LsS/DjHr+uDM647Gru/cA8+J3a3HfhttwCKLyuoyN7yXTFCxKBtSgMQBvrW9yNPa2/zDRUNuGPaH5QUFoa4arQ=="],
 
