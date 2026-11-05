@@ -24,8 +24,17 @@ eblib scrape "https://www.ebanglalibrary.com/books/<slug>/"
 # structure only, no content
 eblib info "https://www.ebanglalibrary.com/books/<slug>/"
 
+# fetch content into the cache, no EPUB
+eblib scrape "<url>" --fetch-only
+
 # rebuild from cache after changing style or ranges
 eblib build 216889 --style minimal
+
+# rebuild from any copied workspace folder
+eblib build /mnt/backup/eblib/books/216889 --offline
+
+# export a portable folder for epubkit create
+eblib export 216889 -o dist
 
 # list books from the sitemap
 eblib list --limit 20 --search kakababu
@@ -65,6 +74,7 @@ A bare URL works too: `eblib <url>` runs `scrape`.
 | `--refresh-structure` | off | re-parse the course page |
 | `--refresh-content` | off | re-fetch content |
 | `--offline` | off | cache only |
+| `--fetch-only` | off | fetch content and stop before building |
 | `--lessons <range>` | all | `1-5,8` |
 | `--topics <range>` | all | topics inside selected lessons |
 | `--sections <range>` | all | sections |
@@ -104,6 +114,31 @@ A bare URL works too: `eblib <url>` runs `scrape`.
 ```
 
 No URL is fetched twice unless `--refresh` is passed. `book.json` is written after each item, so a crash loses at most one item.
+
+`eblib build <id>` rebuilds from this cache. `eblib build <folder>` reads a
+workspace folder copied anywhere. Add `--offline` to keep the build fully local
+(fonts, cover and metadata are read from the cache).
+
+## Export
+
+`eblib export <id>` writes a folder that `epubkit create` can build:
+
+```text
+dist/<slug>/
+  book.json            # manifest: parts, lessons, topics, extra pages
+  content/*.html       # sanitised chapters, images as ../images/<name>
+  images/              # downloaded images
+  cover.jpg            # site cover, when one was cached
+  fonts/               # cached Bengali/Latin subsets
+```
+
+```bash
+eblib export 216889 -o dist
+epubkit create "dist/<slug>" -o "dist/<slug>.epub" --validate
+```
+
+Unlike `eblib build`, this folder does not depend on `eblib`; keep it or move it
+and rebuild the EPUB later with `epubkit`.
 
 ## Site quirks
 

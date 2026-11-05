@@ -1,7 +1,10 @@
+import { basename, dirname } from "node:path";
 import { EblibError, EXIT } from "../../config.ts";
 import { buildBook } from "../../build/book.ts";
 import { resolveFonts } from "../../build/fonts.ts";
 import { openWorkspace, resolveCourseId } from "../../scrape.ts";
+import { Workspace } from "../../store/workspace.ts";
+import { isDirectory } from "../../io.ts";
 import { enrichWorkspace } from "../../enrich.ts";
 import {
   cacheDirFor,
@@ -22,8 +25,7 @@ export async function buildCommand(target: string | undefined, flags: GlobalFlag
   if (!target) throw new EblibError("Usage: eblib build <book.json|course-id>", EXIT.usage);
 
   const cacheDir = cacheDirFor(flags);
-  const courseId = await resolveCourseId(target);
-  const workspace = await openWorkspace(cacheDir, courseId);
+  const workspace = await resolveWorkspace(target, cacheDir);
   const client = await clientFor(flags);
 
   try {
@@ -71,4 +73,18 @@ export async function buildCommand(target: string | undefined, flags: GlobalFlag
   } finally {
     await client.close();
   }
+}
+
+/** A cached course id, a book.json path, or a copied workspace folder. */
+async function resolveWorkspace(target: string, cacheDir: string): Promise<Workspace> {
+  if (await isDirectory(target)) {
+    const local = await Workspace.openAt(target);
+    if (local) return local;
+  }
+  if (basename(target) === "book.json") {
+    const local = await Workspace.openAt(dirname(target));
+    if (local) return local;
+  }
+  const courseId = await resolveCourseId(target);
+  return openWorkspace(cacheDir, courseId);
 }

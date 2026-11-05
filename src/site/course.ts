@@ -1,5 +1,6 @@
 import * as cheerio from "cheerio";
 import type { Element } from "domhandler";
+import { sanitizeHtml } from "@epubkit/core";
 
 export interface CourseNode {
   id: string;
@@ -309,4 +310,62 @@ export function decodeEntities(value: string): string {
     .replace(/&amp;/g, "&")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">");
+}
+
+export function parseCourseIntro(html: string): string | undefined {
+  const $ = cheerio.load(html);
+  let content = $("div.ld-tab-content.entry-content").first();
+  if (content.length === 0) content = $(".ld-tab-content").first();
+  if (content.length === 0) content = $(".entry-content").first();
+  if (content.length === 0) return undefined;
+
+  content.find("button.simplefavorite-button, .simplefavorite-button").remove();
+  const raw = content.html()?.trim();
+  if (!raw) return undefined;
+  return sanitizeHtml(raw);
+}
+
+export function splitIntroPages(html: string): Array<{ title: string; html: string }> {
+  if (!html.trim()) return [];
+  const $ = cheerio.load(`<div id="__root">${html}</div>`, null, false);
+  const pages: Array<{ title: string; html: string }> = [];
+  let currentElements: string[] = [];
+
+  const flush = () => {
+    if (currentElements.length === 0) return;
+    const chunkHtml = currentElements.join("\n").trim();
+    if (chunkHtml) {
+      const page$ = cheerio.load(`<div id="__page">${chunkHtml}</div>`, null, false);
+      let pageTitle = "";
+      const heading = page$("#__page h1, #__page h2, #__page h3, #__page h4").first();
+      if (heading.length > 0) {
+        pageTitle = heading.text().trim();
+      } else {
+        const firstStrong = page$("#__page p strong, #__page strong").first();
+        if (firstStrong.length > 0) {
+          const strongText = firstStrong.text().trim();
+          if (strongText.length > 0 && strongText.length < 50) {
+            pageTitle = strongText.split(/[–—\-:\n]/)[0]?.trim() || strongText;
+          }
+        }
+      }
+      if (!pageTitle) {
+        pageTitle = "কিছু কথা";
+      }
+      pages.push({ title: pageTitle, html: chunkHtml });
+    }
+    currentElements = [];
+  };
+
+  $("#__root").children().each((_, el) => {
+    const text = $(el).text().trim();
+    if ($(el).is("p") && (text === "." || text === "•" || text === "·" || text === "।")) {
+      flush();
+    } else {
+      currentElements.push($.html(el));
+    }
+  });
+  flush();
+
+  return pages;
 }

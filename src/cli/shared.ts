@@ -15,6 +15,7 @@ export interface GlobalFlags {
   refreshStructure?: boolean;
   refreshContent?: boolean;
   offline?: boolean;
+  fetchOnly?: boolean;
   lessons?: string;
   topics?: string;
   sections?: string;

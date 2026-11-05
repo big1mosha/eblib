@@ -2,7 +2,7 @@ import { join } from "node:path";
 import type { BookMetadata, PagingInfo, Section } from "../site/course.ts";
 import { bookPath, readJson, writeJson, exists, writeAtomic, readText } from "../io.ts";
 
-export type ItemKind = "lesson" | "topic";
+export type ItemKind = "lesson" | "topic" | "intro";
 
 export interface ItemState {
   status: "pending" | "done" | "failed";
@@ -33,6 +33,7 @@ export interface BookState {
   paging: PagingInfo;
   items: Record<string, ItemState>;
   images: Record<string, ImageState>;
+  introHtml?: string;
   warnings: string[];
   updatedAt: string;
 }
@@ -51,10 +52,10 @@ export class Workspace {
   readonly dir: string;
   state: BookState;
 
-  private constructor(cacheDir: string, courseId: string, state: BookState) {
+  private constructor(cacheDir: string, courseId: string, state: BookState, dir?: string) {
     this.cacheDir = cacheDir;
     this.courseId = courseId;
-    this.dir = bookPath(cacheDir, courseId);
+    this.dir = dir ?? bookPath(cacheDir, courseId);
     this.state = state;
   }
 
@@ -63,6 +64,13 @@ export class Workspace {
     const state = await readJson<BookState>(path);
     if (!state) return null;
     return new Workspace(cacheDir, courseId, state);
+  }
+
+  /** Open a workspace folder anywhere, e.g. a copied `.eblib/books/<id>` directory. */
+  static async openAt(dir: string): Promise<Workspace | null> {
+    const state = await readJson<BookState>(join(dir, "book.json"));
+    if (!state?.courseId) return null;
+    return new Workspace(dir, state.courseId, state, dir);
   }
 
   static create(cacheDir: string, courseId: string, state: Omit<BookState, "updatedAt">): Workspace {

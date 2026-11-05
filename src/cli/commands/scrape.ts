@@ -74,6 +74,27 @@ export async function scrapeCommand(url: string | undefined, flags: GlobalFlags)
       warn: (message) => out.warn(message),
     });
 
+    if (flags.fetchOnly) {
+      if (flags.report) await copyFile(workspace.path("report.json"), flags.report);
+      out.info(
+        `Cached ${report.lessons} lesson(s), ${report.topics} topic(s) in ${workspace.dir}`,
+      );
+      out.event({
+        event: "fetched",
+        courseId: report.courseId,
+        lessons: report.lessons,
+        topics: report.topics,
+      });
+      if (flags.json) out.json(report);
+      if (report.failed.length > 0) {
+        throw new EblibError(
+          `${report.failed.length} item(s) failed; rerun with --resume`,
+          EXIT.partial,
+        );
+      }
+      return;
+    }
+
     const result = await buildBook({
       workspace,
       outDir: outDirFor(flags),

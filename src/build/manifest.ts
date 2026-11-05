@@ -1,6 +1,7 @@
 import type { BookImage, BookInput, ChapterInput, FontInput, PartInput, ThemeName } from "@epubkit/core";
 import type { CoverAsset } from "@epubkit/core";
-import type { Lesson, Section } from "../site/course.ts";
+import { parseCourseIntro, splitIntroPages, type Lesson, type Section } from "../site/course.ts";
+import { HttpCache } from "../http/cache.ts";
 import { rewriteImageSources } from "../site/content.ts";
 import type { Workspace } from "../store/workspace.ts";
 import { selectStructure, type Selection } from "./select.ts";
@@ -68,6 +69,36 @@ export async function buildManifest(
     return rewriteImageSources(html, imageMap);
   };
 
+  let introHtml: string | undefined = undefined;
+  try {
+    introHtml = (await workspace.readContent("intro", state.courseId)) ?? state.introHtml;
+    if (!introHtml && (state.metadata.source || state.source)) {
+      const cache = await HttpCache.open(workspace.cacheDir);
+      const cached = await cache.get(state.metadata.source ?? state.source);
+      if (cached?.bytes) {
+        const text = new TextDecoder().decode(cached.bytes);
+        introHtml = parseCourseIntro(text);
+        if (introHtml) {
+          await workspace.writeContent("intro", state.courseId, introHtml);
+          state.introHtml = introHtml;
+        }
+      }
+    }
+  } catch {
+    // Non-fatal if intro cannot be read
+  }
+
+  const extraPages: ChapterInput[] = [];
+  if (introHtml) {
+    const pages = splitIntroPages(introHtml);
+    for (const p of pages) {
+      extraPages.push({
+        title: p.title,
+        html: rewriteImageSources(p.html, imageMap),
+      });
+    }
+  }
+
   const partsMode = options.parts ?? "auto";
   const sections = partsMode === "never" ? flatten(selection) : selection;
   const parts: PartInput[] = [];
@@ -102,6 +133,7 @@ export async function buildManifest(
     cover: options.cover,
     fonts: options.fonts,
     images: options.images,
+    extraPages: extraPages.length > 0 ? extraPages : undefined,
     parts,
     style: options.style ?? "classic",
     splitSizeKb: options.splitSizeKb ?? 200,

@@ -15,6 +15,14 @@ export async function exists(path: string): Promise<boolean> {
   }
 }
 
+export async function isDirectory(path: string): Promise<boolean> {
+  try {
+    return (await stat(path)).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
 export async function readJson<T>(path: string): Promise<T | null> {
   try {
     return JSON.parse(await readFile(path, "utf8")) as T;

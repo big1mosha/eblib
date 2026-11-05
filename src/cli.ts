@@ -6,6 +6,7 @@ import { createOutput } from "./log.ts";
 import { authCommand } from "./cli/commands/auth.ts";
 import { buildCommand } from "./cli/commands/build.ts";
 import { cacheCommand } from "./cli/commands/cache.ts";
+import { exportCommand } from "./cli/commands/export.ts";
 import { infoCommand } from "./cli/commands/info.ts";
 import { listCommand } from "./cli/commands/list.ts";
 import { scrapeCommand } from "./cli/commands/scrape.ts";
@@ -27,6 +28,7 @@ function globalOptions(command: ReturnType<typeof cli.command>): ReturnType<type
     .option("--refresh-structure", "re-parse the course page")
     .option("--refresh-content", "re-fetch lesson and topic content")
     .option("--offline", "use the cache only")
+  .option("--fetch-only", "fetch and cache content without building an EPUB")
     .option("--lessons <range>", "lesson range, e.g. 1-5,8")
     .option("--topics <range>", "topic range within lessons")
     .option("--sections <range>", "section range")
@@ -99,6 +101,10 @@ globalOptions(cli.command("info <url>", "Show book metadata and structure")).act
 
 globalOptions(cli.command("build <book>", "Rebuild an EPUB from the cache")).action(
   (book: string, flags: GlobalFlags) => guard(() => buildCommand(book, flags), flags),
+);
+
+globalOptions(cli.command("export <book>", "Write a portable folder for epubkit create")).action(
+  (book: string, flags: GlobalFlags) => guard(() => exportCommand(book, flags), flags),
 );
 
 globalOptions(cli.command("list", "List books from the site sitemap"))

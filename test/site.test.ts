@@ -2,10 +2,12 @@ import { describe, expect, test } from "bun:test";
 import {
   largestSrcset,
   parseCourseId,
+  parseCourseIntro,
   parseLessonPage,
   parseMetadata,
   parsePaging,
   parseStructure,
+  splitIntroPages,
 } from "../src/site/course.ts";
 
 const COURSE = `<!doctype html>
@@ -146,5 +148,46 @@ describe("largestSrcset", () => {
     expect(largestSrcset("/a.jpg 300w, /b.jpg 800w, /c.jpg 150w")).toBe("/b.jpg");
     expect(largestSrcset("/a.jpg 1x, /b.jpg 2x")).toBe("/b.jpg");
     expect(largestSrcset(undefined)).toBeUndefined();
+  });
+});
+
+describe("parseCourseIntro and splitIntroPages", () => {
+  test("extracts intro from course tab and separates by dot", () => {
+    const html = `<div aria-labelledby="ld-content-tab-240254" class="ld-tab-content ld-visible entry-content" id="ld-tab-content-240254" role="tabpanel" tabindex="0">
+<p class="wp-block-paragraph"><strong>কালো ঘুড়ি – হিমাদ্রিকিশোর দাশগুপ্ত</strong></p>
+<p class="wp-block-paragraph">প্রথম প্রকাশ – বইমেলা ২০১৫<br>প্রকাশক – নিমাই গরাই, লালমাটি প্রকাশন<br>প্রচ্ছদ – অনুপ রায়</p>
+<p class="wp-block-paragraph">.</p>
+<p class="wp-block-paragraph"><strong>উৎসর্গ<br></strong>শাশ্বতী চন্দকে</p>
+<p class="wp-block-paragraph">.</p>
+<p class="wp-block-paragraph"><strong>ভূমিকা</strong></p>
+<p class="wp-block-paragraph">মানুষ ভয় পেতেও ভালোবাসে৷</p>
+<button class="simplefavorite-button">Bookmark</button>
+</div>`;
+
+    const intro = parseCourseIntro(html);
+    expect(intro).toBeDefined();
+    expect(intro).not.toContain("simplefavorite-button");
+
+    const pages = splitIntroPages(intro!);
+    expect(pages).toHaveLength(3);
+    expect(pages[0]?.title).toBe("কালো ঘুড়ি");
+    expect(pages[0]?.html).toContain("প্রথম প্রকাশ");
+    expect(pages[1]?.title).toBe("উৎসর্গ");
+    expect(pages[1]?.html).toContain("শাশ্বতী চন্দকে");
+    expect(pages[2]?.title).toBe("ভূমিকা");
+    expect(pages[2]?.html).toContain("মানুষ ভয় পেতেও ভালোবাসে৷");
+  });
+
+  test("handles intro without dot separators as a single page", () => {
+    const html = `<div class="ld-tab-content entry-content">
+<p><strong>কিশোর কর্নেল সমগ্র ১</strong></p>
+<h2>কিছু কথা</h2>
+<p>কর্নেলের রহস্য কাহিনি লিখতে শুরু করেছিলাম।</p>
+</div>`;
+    const intro = parseCourseIntro(html);
+    const pages = splitIntroPages(intro!);
+    expect(pages).toHaveLength(1);
+    expect(pages[0]?.title).toBe("কিছু কথা");
+    expect(pages[0]?.html).toContain("কর্নেলের রহস্য কাহিনি");
   });
 });

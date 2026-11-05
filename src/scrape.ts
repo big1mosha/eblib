@@ -6,6 +6,7 @@ import type { Output } from "./log.ts";
 import { extractContent, imageSources } from "./site/content.ts";
 import {
   parseCourseId,
+  parseCourseIntro,
   parseLessonPage,
   parseMetadata,
   parsePaging,
@@ -73,6 +74,7 @@ export async function scrapeCourse(client: HttpClient, options: ScrapeOptions): 
   if (!courseId) throw new EblibError(`No LearnDash course found at ${source}`, EXIT.invalid);
 
   const metadata = parseMetadata(page.text);
+  const introHtml = parseCourseIntro(page.text);
   const { sections, hasSections } = parseStructure(page.text);
   if (sections.length === 0) throw new EblibError(`Course ${courseId} has no lessons`, EXIT.invalid);
 
@@ -104,6 +106,11 @@ export async function scrapeCourse(client: HttpClient, options: ScrapeOptions): 
     workspace.state.source = source;
     workspace.state.sections = sections;
     workspace.state.hasSections = hasSections;
+  }
+
+  if (introHtml) {
+    workspace.state.introHtml = introHtml;
+    await workspace.writeContent("intro", courseId, introHtml);
   }
 
   const state = workspace.state;
