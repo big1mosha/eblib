@@ -6,14 +6,27 @@ Personal use only. No redistribution, no DRM removal, no paywall or CAPTCHA bypa
 
 ## Install
 
+Requires [Bun](https://bun.sh) and git.
+
 ```bash
-bun install
-bun run src/cli.ts --help
+git clone https://github.com/big1mosha/eblib.git
+cd eblib
+bun start
 ```
 
-`eblib` depends on `@epubkit/core` from the sibling `epubkit` repo
-(`file:../epubkit/packages/core`). Bun installs that dependency as a copy, so
-run `bun install` here after changing the core package.
+`bun start` runs everything: it asks to fetch [epubkit](https://github.com/big1mosha/epubkit)
+if the submodule is missing, installs dependencies, then prints help.
+
+Already cloned with submodules?
+
+```bash
+git clone --recurse-submodules https://github.com/big1mosha/eblib.git
+cd eblib && bun start
+```
+
+`@epubkit/core` comes from `vendor/epubkit/packages/core`. Bun copies that
+dependency, so run `bun install` here after changing the core package. See
+[CONTRIBUTING.md](CONTRIBUTING.md) for the submodule workflow.
 
 ## Usage
 
@@ -191,7 +204,16 @@ Challenges are never solved automatically. `eblib auth` opens a headed Playwrigh
 ## Development
 
 ```bash
-bun test
-bunx tsc --noEmit
-bun build src/cli.ts --compile --outfile dist/eblib
+bun start        # fetch epubkit if needed, install, run
+bun run test
+bun run typecheck
+bun run build    # compiled binary in dist/eblib
 ```
+
+epubkit lives at `vendor/epubkit` as a submodule. To change `@epubkit/core`,
+work in the [epubkit repo](https://github.com/big1mosha/epubkit), push there,
+then update the pointer. See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## License
+
+[MIT](LICENSE)
