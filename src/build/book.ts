@@ -57,6 +57,7 @@ export async function buildBook(options: BuildBookOptions): Promise<BuildBookRes
     series: manifest.input.series,
     imprint: imprintOf(state.metadata.source),
     siteCover: state.metadata.coverFile ? workspace.path(state.metadata.coverFile) : undefined,
+    fonts: options.fonts,
     warn: (message) => {
       warnings.push(message);
       options.warn(message);

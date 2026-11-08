@@ -12,6 +12,10 @@ export interface Lesson extends CourseNode {
   topics: CourseNode[];
   /** Number the site claims in the "N Topics" badge. */
   topicCount: number;
+  /** Emit the chapter without a heading (opening page of a single-page book). */
+  heading?: boolean;
+  /** Leave the chapter out of the table of contents. */
+  inToc?: boolean;
 }
 
 export interface Section {
@@ -66,7 +70,12 @@ export function parseCourseId(html: string): string | undefined {
     if (id) return id[1];
   }
   const body = /learndash-cpt-sfwd-courses-(\d+)-parent/.exec(html);
-  return body?.[1];
+  if (body) return body[1];
+  // Single-page courses have no lesson list, but still render the course
+  // wrapper and the content tab with the course id.
+  const wrapper = /id="learndash_post_(\d+)"/.exec(html);
+  if (wrapper) return wrapper[1];
+  return /ld-tab-content-(\d+)/.exec(html)?.[1];
 }
 
 export function parseMetadata(html: string): BookMetadata {
@@ -325,6 +334,117 @@ export function parseCourseIntro(html: string): string | undefined {
   return sanitizeHtml(raw);
 }
 
+export interface PageChapter {
+  title: string;
+  html: string;
+  /** False for the opening text that sits before the first heading. */
+  heading: boolean;
+}
+
+/** The site separates front matter from the book text with a lone dot. */
+function isPageBreak(value: string): boolean {
+  const text = value.trim();
+  return text === "." || text === "•" || text === "·" || text === "।";
+}
+
+/**
+ * The content tab wraps everything in plain <div>s. Flatten them into the
+ * block-level elements they hold, so paragraphs and headings can be grouped.
+ */
+function flattenBlocks($: cheerio.CheerioAPI, elements: cheerio.Cheerio<Element>): Element[] {
+  const blocks: Element[] = [];
+  const walk = (nodes: cheerio.Cheerio<Element>): void => {
+    nodes.each((_, element) => {
+      const node = $(element);
+      if (node.is("div, section, article") && node.children().length > 0) {
+        // Unwrap structural containers, but keep divs whose own text is the
+        // content (leaves are pushed below). The site pads them with
+        // whitespace, so ignore text nodes that are only spaces.
+        const hasOwnText = node.contents().toArray().some(
+          (child) => child.type === "text" && (child as { data?: string }).data?.trim(),
+        );
+        if (!hasOwnText) {
+          walk(node.children());
+          return;
+        }
+      }
+      // Drop empty layout divs left behind by the unwrapping above.
+      if (node.is("div, section, article") && node.children().length === 0 && !node.text().trim()) {
+        return;
+      }
+      blocks.push(element);
+    });
+  };
+  walk(elements);
+  return blocks;
+}
+
+/**
+ * Split the front matter (title, imprint, publisher) from the book text at the
+ * first lone-dot paragraph.
+ */
+export function splitPageFrontMatter(contentHtml: string): { details?: string; body: string } {
+  const $ = cheerio.load(`<div id="__root">${contentHtml}</div>`, null, false);
+  const blocks = flattenBlocks($, $("#__root").children());
+  const index = blocks.findIndex((element) => $(element).is("p") && isPageBreak($(element).text()));
+  if (index === -1) return { body: contentHtml };
+
+  const join = (elements: Element[]) =>
+    elements.map((element) => $.html(element)).join("\n").trim();
+  return {
+    details: join(blocks.slice(0, index)) || undefined,
+    body: join(blocks.slice(index + 1)),
+  };
+}
+
+/**
+ * Some courses have no lessons at all: the whole book sits in the content tab
+ * as one HTML blob. Split it into chapters at h2/h3 headings; the text before
+ * the first heading stays an unheaded opening page.
+ */
+export function splitPageChapters(contentHtml: string, fallbackTitle: string): PageChapter[] {
+  const $ = cheerio.load(`<div id="__root">${contentHtml}</div>`, null, false);
+  const chapters: PageChapter[] = [];
+  let title = fallbackTitle;
+  let heading = false;
+  let nodes: string[] = [];
+
+  const flush = () => {
+    const html = nodes.join("\n").trim();
+    nodes = [];
+    if (!html) return;
+    const text = cheerio.load(html, null, false).root().text().trim();
+    if (!text) return;
+    chapters.push({ title, html, heading });
+  };
+
+  for (const element of flattenBlocks($, $("#__root").children())) {
+    const node = $(element);
+    const found = node.is("h2, h3") ? collapse(node.text()) : "";
+    if (found && found.length <= 80) {
+      flush();
+      title = found;
+      heading = true;
+      continue;
+    }
+    nodes.push($.html(element));
+  }
+  flush();
+
+  if (chapters.length === 0) {
+    const html = contentHtml.trim();
+    return html ? [{ title: fallbackTitle, html, heading: true }] : [];
+  }
+  return chapters;
+}
+
+/** Split the content tab of a lesson-less course page into chapters. */
+export function parsePageChapters(pageHtml: string, fallbackTitle: string): PageChapter[] {
+  const content = parseCourseIntro(pageHtml);
+  if (!content) return [];
+  return splitPageChapters(splitPageFrontMatter(content).body, fallbackTitle);
+}
+
 export function splitIntroPages(html: string): Array<{ title: string; html: string }> {
   if (!html.trim()) return [];
   const $ = cheerio.load(`<div id="__root">${html}</div>`, null, false);
@@ -357,14 +477,14 @@ export function splitIntroPages(html: string): Array<{ title: string; html: stri
     currentElements = [];
   };
 
-  $("#__root").children().each((_, el) => {
-    const text = $(el).text().trim();
-    if ($(el).is("p") && (text === "." || text === "•" || text === "·" || text === "।")) {
+  for (const element of flattenBlocks($, $("#__root").children())) {
+    const node = $(element);
+    if (node.is("p") && isPageBreak(node.text())) {
       flush();
     } else {
-      currentElements.push($.html(el));
+      currentElements.push($.html(element));
     }
-  });
+  }
   flush();
 
   return pages;

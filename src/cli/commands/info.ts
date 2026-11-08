@@ -1,5 +1,5 @@
 import { EblibError, EXIT } from "../../config.ts";
-import { parseMetadata, parsePaging, parseStructure } from "../../site/course.ts";
+import { parseMetadata, parsePageChapters, parsePaging, parseStructure } from "../../site/course.ts";
 import { clientFor, outputFor, type GlobalFlags } from "../shared.ts";
 
 export async function infoCommand(url: string | undefined, flags: GlobalFlags): Promise<void> {
@@ -15,14 +15,16 @@ export async function infoCommand(url: string | undefined, flags: GlobalFlags): 
     const metadata = parseMetadata(response.text);
     const { sections, hasSections } = parseStructure(response.text);
     const paging = parsePaging(response.text);
-    const lessons = sections.reduce((total, section) => total + section.lessons.length, 0);
+    const chapters = sections.length === 0 ? parsePageChapters(response.text, metadata.title) : [];
+    const lessons =
+      sections.reduce((total, section) => total + section.lessons.length, 0) || chapters.length;
     const topics = sections.reduce(
       (total, section) => total + section.lessons.reduce((n, lesson) => n + lesson.topics.length, 0),
       0,
     );
 
     if (flags.json) {
-      out.json({ metadata, hasSections, paging, sections });
+      out.json({ metadata, hasSections, paging, sections, chapters });
       return;
     }
 
@@ -44,6 +46,12 @@ export async function infoCommand(url: string | undefined, flags: GlobalFlags): 
         for (const lesson of section.lessons) {
           out.info(`       - ${lesson.title}${lesson.topics.length ? ` (${lesson.topics.length} topics)` : ""}`);
         }
+      }
+    }
+    if (chapters.length > 0) {
+      out.info(`  single page — ${chapters.length} chapter(s)`);
+      if (flags.verbose) {
+        for (const chapter of chapters) out.info(`       - ${chapter.title}`);
       }
     }
   } finally {

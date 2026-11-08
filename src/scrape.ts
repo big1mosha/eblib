@@ -11,9 +11,12 @@ import {
   parseMetadata,
   parsePaging,
   parseStructure,
+  splitPageChapters,
+  splitPageFrontMatter,
   type CourseNode,
   type Lesson,
   type LessonPage,
+  type PageChapter,
 } from "./site/course.ts";
 import { downloadImage } from "./site/images.ts";
 import { hashText, itemKey, Workspace, type BookState } from "./store/workspace.ts";
@@ -76,7 +79,27 @@ export async function scrapeCourse(client: HttpClient, options: ScrapeOptions): 
   const metadata = parseMetadata(page.text);
   const introHtml = parseCourseIntro(page.text);
   const { sections, hasSections } = parseStructure(page.text);
-  if (sections.length === 0) throw new EblibError(`Course ${courseId} has no lessons`, EXIT.invalid);
+
+  // Some books skip lessons entirely and put the whole text in the course
+  // content tab. The imprint before the lone dot becomes a front-matter page,
+  // the rest is split into chapters and treated as lessons.
+  const front = sections.length === 0 && introHtml ? splitPageFrontMatter(introHtml) : undefined;
+  const pageChapters = front ? splitPageChapters(front.body, metadata.title) : [];
+  const singlePage = pageChapters.length > 0;
+  if (sections.length === 0) {
+    if (!singlePage) throw new EblibError(`Course ${courseId} has no lessons`, EXIT.invalid);
+    sections.push({
+      title: "",
+      lessons: pageChapters.map((chapter, index) => ({
+        id: `${courseId}-p${index + 1}`,
+        title: chapter.title,
+        url: `${source}#p${index + 1}`,
+        topics: [],
+        topicCount: 0,
+        ...(chapter.heading ? {} : { heading: false, inToc: false }),
+      })),
+    });
+  }
 
   const paging = parsePaging(page.text);
   const visibleLessons = sections.reduce((total, section) => total + section.lessons.length, 0);
@@ -90,6 +113,7 @@ export async function scrapeCourse(client: HttpClient, options: ScrapeOptions): 
       metadata,
       sections,
       hasSections,
+      singlePage,
       paging: {
         totalItems: paging.totalItems || visibleLessons,
         totalPages: paging.totalPages || 1,
@@ -106,11 +130,15 @@ export async function scrapeCourse(client: HttpClient, options: ScrapeOptions): 
     workspace.state.source = source;
     workspace.state.sections = sections;
     workspace.state.hasSections = hasSections;
+    workspace.state.singlePage = singlePage;
   }
 
-  if (introHtml) {
-    workspace.state.introHtml = introHtml;
-    await workspace.writeContent("intro", courseId, introHtml);
+  // For single-page books only the imprint goes in front of the contents;
+  // the body is already cached as chapters.
+  const frontHtml = singlePage ? front?.details : introHtml;
+  if (frontHtml) {
+    workspace.state.introHtml = frontHtml;
+    await workspace.writeContent("intro", courseId, frontHtml);
   }
 
   const state = workspace.state;
@@ -141,21 +169,33 @@ export async function scrapeCourse(client: HttpClient, options: ScrapeOptions): 
   };
 
   const seenTopics = new Set<string>();
+  const chapters = new Map<string, PageChapter>();
+  if (state.singlePage) {
+    pageChapters.forEach((chapter, index) => chapters.set(`${courseId}-p${index + 1}`, chapter));
+    workspace.addWarning(`single-page course: split into ${pageChapters.length} chapter(s)`);
+  }
 
   for (const section of selected) {
     for (const lesson of section.lessons) {
       done += 1;
       try {
-        const topics = options.skipTopics ? [] : await scanTopics(client, lesson, options);
-        await storePage(workspace, client, "lesson", lesson.id, lesson.url, lesson.title, options);
-        report.lessons += 1;
+        const chapter = chapters.get(lesson.id);
+        if (chapter) {
+          const images = await cacheImages(workspace, client, chapter.html, options);
+          await workspace.writeContent("lesson", lesson.id, chapter.html, images);
+          report.lessons += 1;
+        } else {
+          const topics = options.skipTopics ? [] : await scanTopics(client, lesson, options);
+          await storePage(workspace, client, "lesson", lesson.id, lesson.url, lesson.title, options);
+          report.lessons += 1;
 
-        for (const topic of topics) {
-          const key = itemKey("topic", topic.id);
-          if (seenTopics.has(key)) continue;
-          seenTopics.add(key);
-          await storePage(workspace, client, "topic", topic.id, topic.url, topic.title, options);
-          report.topics += 1;
+          for (const topic of topics) {
+            const key = itemKey("topic", topic.id);
+            if (seenTopics.has(key)) continue;
+            seenTopics.add(key);
+            await storePage(workspace, client, "topic", topic.id, topic.url, topic.title, options);
+            report.topics += 1;
+          }
         }
       } catch (cause) {
         if (cause instanceof EblibError && cause.exitCode === EXIT.auth) throw cause;

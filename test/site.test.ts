@@ -5,9 +5,12 @@ import {
   parseCourseIntro,
   parseLessonPage,
   parseMetadata,
+  parsePageChapters,
   parsePaging,
   parseStructure,
   splitIntroPages,
+  splitPageChapters,
+  splitPageFrontMatter,
 } from "../src/site/course.ts";
 
 const COURSE = `<!doctype html>
@@ -92,6 +95,81 @@ describe("parseStructure", () => {
     expect(sections).toHaveLength(1);
     expect(sections[0]!.title).toBe("");
     expect(sections[0]!.lessons).toHaveLength(3);
+  });
+});
+
+const SINGLE_PAGE = `<!doctype html>
+<html><head>
+  <link rel="canonical" href="https://example.test/books/one-page/"/>
+</head><body class="postid-231628 single-sfwd-courses learndash-cpt learndash-cpt-sfwd-courses">
+<h1 class="page-header-title">এক পৃষ্ঠার বই – লেখক এক</h1>
+<span class="entry-terms-authors"><a href="#">লেখক এক</a></span>
+<div id="learndash_post_231628">
+  <div aria-labelledby="ld-content-tab-231628" class="ld-tab-content ld-visible entry-content" id="ld-tab-content-231628">
+    <p class="wp-block-paragraph"><strong>এক পৃষ্ঠার বই</strong></p>
+    <p class="wp-block-paragraph">প্রথম প্রকাশ: জানুয়ারি ২০০৯</p>
+    <p class="wp-block-paragraph">.</p>
+    <p class="wp-block-paragraph">শুরুর অনুচ্ছেদ।</p>
+    <h3 class="wp-block-heading">॥১॥</h3>
+    <p class="wp-block-paragraph">প্রথম অধ্যায়ের লেখা।</p>
+    <h3 class="wp-block-heading">॥২॥</h3>
+    <p class="wp-block-paragraph">দ্বিতীয় অধ্যায়ের লেখা।</p>
+    <button class="simplefavorite-button">Bookmark</button>
+  </div>
+</div>
+<div class="mai-grid entries"><h3>অন্য বই</h3><p>সুপারিশের লেখা।</p></div>
+</body></html>`;
+
+describe("single-page courses", () => {
+  test("parseCourseId reads the course wrapper id", () => {
+    expect(parseCourseId(SINGLE_PAGE)).toBe("231628");
+    expect(parseCourseId('<div id="ld-tab-content-777"></div>')).toBe("777");
+  });
+
+  test("splits the course tab into chapters at headings", () => {
+    const chapters = splitPageChapters(
+      "<p><strong>বই</strong></p><p>শুরু।</p><h3>॥১॥</h3><p>এক।</p><h3>॥২॥</h3><p>দুই।</p>",
+      "বই",
+    );
+    expect(chapters.map((chapter) => chapter.title)).toEqual(["বই", "॥১॥", "॥২॥"]);
+    expect(chapters[1]!.html).toContain("এক।");
+    expect(chapters[1]!.html).not.toContain("॥১॥");
+  });
+
+  test("splits the imprint from the body at the lone dot", () => {
+    const content = parseCourseIntro(SINGLE_PAGE)!;
+    const { details, body } = splitPageFrontMatter(content);
+    expect(details).toContain("প্রথম প্রকাশ");
+    expect(details).not.toContain("শুরুর অনুচ্ছেদ");
+    expect(body).toContain("শুরুর অনুচ্ছেদ");
+    expect(body).not.toContain("প্রথম প্রকাশ");
+  });
+
+  test("unwraps the plain divs the site puts around the text", () => {
+    const wrapped =
+      "<div>\n  <div></div>\n</div>\n<div>\n  <p><strong>বই</strong></p>\n  <p>প্রথম প্রকাশ: জানুয়ারি ২০০৯</p>\n  <p>.</p>\n  <p>শুরু।</p>\n  <h3>॥১॥</h3>\n  <p>এক।</p>\n</div>";
+    const { details, body } = splitPageFrontMatter(wrapped);
+    expect(details).toContain("প্রথম প্রকাশ");
+    expect(body).toContain("শুরু।");
+    const chapters = splitPageChapters(body, "বই");
+    expect(chapters.map((chapter) => chapter.title)).toEqual(["বই", "॥১॥"]);
+    expect(chapters.map((chapter) => chapter.heading)).toEqual([false, true]);
+  });
+
+  test("ignores the related-books grid outside the content tab", () => {
+    const chapters = parsePageChapters(SINGLE_PAGE, "এক পৃষ্ঠার বই");
+    expect(chapters.map((chapter) => chapter.title)).toEqual(["এক পৃষ্ঠার বই", "॥১॥", "॥২॥"]);
+    expect(chapters.map((chapter) => chapter.heading)).toEqual([false, true, true]);
+    expect(chapters.some((chapter) => chapter.html.includes("সুপারিশের লেখা"))).toBe(false);
+    expect(chapters[0]!.html).toContain("শুরুর অনুচ্ছেদ");
+    expect(chapters[1]!.html).toContain("প্রথম অধ্যায়ের লেখা");
+    expect(JSON.stringify(chapters)).not.toContain("প্রথম প্রকাশ");
+  });
+
+  test("keeps a heading-less page as one chapter", () => {
+    const chapters = splitPageChapters("<p>পুরো বই এক প্যারায়।</p>", "বই");
+    expect(chapters).toHaveLength(1);
+    expect(chapters[0]!.title).toBe("বই");
   });
 });
 

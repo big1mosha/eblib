@@ -30,6 +30,8 @@ export interface BookState {
   };
   sections: Section[];
   hasSections: boolean;
+  /** The whole book lives in the course content tab; chapters are synthetic. */
+  singlePage?: boolean;
   paging: PagingInfo;
   items: Record<string, ItemState>;
   images: Record<string, ImageState>;

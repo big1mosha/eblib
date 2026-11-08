@@ -71,6 +71,11 @@ A bare URL works too: `eblib <url>` runs `scrape`.
 - Section heading → part page, lesson → chapter, topic → sub-chapter.
 - A lesson with topics and no content becomes a title page; its topics follow.
 - A section with one lesson of the same name does not repeat the title.
+- A book published as one long course page (no lessons) is split into chapters
+  at its `h2`/`h3` headings; the text before the first heading becomes an
+  unheaded opening page. The site separates the imprint (title, publisher,
+  edition) from the text with a lone `.` paragraph: that part becomes a
+  front-matter page before the contents and is excluded from the TOC.
 - Bengali text keeps its ZWJ/ZWNJ and danda; inline styles are reduced to `text-align`.
 - Images are downloaded, deduplicated by hash, and embedded.
 
@@ -158,11 +163,15 @@ and rebuild the EPUB later with `epubkit`.
 - LearnDash paging on the site is broken (`No Pagination Match`), and LiteSpeed caches the course page without its query string.
 - When the course page lists fewer lessons than its own pager reports, `eblib` follows the "Next Lesson" chain from the last visible lesson and appends the rest. Section names for that tail are unavailable; a `structure-truncated` warning is recorded.
 - Topics that the course page hides are read from the lesson page.
+- Some books have no lesson list at all: the full text sits in the course
+  content tab. These are detected from the course wrapper id and chapterized
+  from their headings; nothing is fetched per chapter. The imprint before the
+  lone-dot separator is stored as a front-matter page.
 - Quizzes are not scraped: LearnDash keeps them outside the lesson content tab, so only lessons and topics become chapters.
 
 ## Cover
 
-`--cover auto` keeps the site cover only when it is at least 800 px wide and close to 2:3. Otherwise a 1600×2400 typographic cover is generated. `sharp` is optional; without it the cover stays an SVG.
+`--cover auto` keeps the site cover only when it is at least 800 px wide and close to 2:3. Otherwise a 1600×2400 typographic cover is generated. `sharp` is optional; without it the cover stays an SVG. Generated covers embed the Bengali and Latin font subsets as base64 `@font-face` data URIs, so the title renders even on readers without a Bengali font installed.
 
 ## Metadata enrichment
 

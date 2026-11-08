@@ -72,7 +72,9 @@ export async function buildManifest(
   let introHtml: string | undefined = undefined;
   try {
     introHtml = (await workspace.readContent("intro", state.courseId)) ?? state.introHtml;
-    if (!introHtml && (state.metadata.source || state.source)) {
+    // A single-page course tab holds the whole book, so never re-parse it as
+    // front matter; its imprint was already stored separately at scrape time.
+    if (!introHtml && !state.singlePage && (state.metadata.source || state.source)) {
       const cache = await HttpCache.open(workspace.cacheDir);
       const cached = await cache.get(state.metadata.source ?? state.source);
       if (cached?.bytes) {
@@ -172,7 +174,7 @@ async function buildLesson(
       merged.push(`<h3>${escapeXml(topic.title)}</h3>`, topicHtml);
     }
     stats.chapters += 1;
-    return { title: lesson.title, html: merged.join("\n") };
+    return withLayout({ title: lesson.title, html: merged.join("\n") }, lesson);
   }
 
   const topicInputs: ChapterInput[] = [];
@@ -189,11 +191,21 @@ async function buildLesson(
   }
 
   stats.chapters += 1;
-  return {
-    title: lesson.title,
-    html,
-    topics: topicInputs.length > 0 ? topicInputs : undefined,
-  };
+  return withLayout(
+    {
+      title: lesson.title,
+      html,
+      topics: topicInputs.length > 0 ? topicInputs : undefined,
+    },
+    lesson,
+  );
+}
+
+/** Carry the optional layout flags of a synthetic lesson into the writer. */
+function withLayout(chapter: ChapterInput, lesson: Lesson): ChapterInput {
+  if (lesson.heading === false) chapter.heading = false;
+  if (lesson.inToc === false) chapter.inToc = false;
+  return chapter;
 }
 
 function flatten(sections: Section[]): Section[] {

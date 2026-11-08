@@ -4,7 +4,7 @@ import { buildBook } from "../../build/book.ts";
 import { resolveFonts } from "../../build/fonts.ts";
 import { scrapeCourse } from "../../scrape.ts";
 import { enrichWorkspace } from "../../enrich.ts";
-import { parseMetadata, parsePaging, parseStructure } from "../../site/course.ts";
+import { parseMetadata, parsePageChapters, parsePaging, parseStructure } from "../../site/course.ts";
 import {
   cacheDirFor,
   clientFor,
@@ -30,15 +30,18 @@ export async function scrapeCommand(url: string | undefined, flags: GlobalFlags)
       const metadata = parseMetadata(response.text);
       const { sections } = parseStructure(response.text);
       const paging = parsePaging(response.text);
-      const lessons = sections.reduce((total, section) => total + section.lessons.length, 0);
+      const chapters = sections.length === 0 ? parsePageChapters(response.text, metadata.title) : [];
+      const lessons =
+        sections.reduce((total, section) => total + section.lessons.length, 0) || chapters.length;
       const topics = sections.reduce(
         (total, section) => total + section.lessons.reduce((n, lesson) => n + lesson.topics.length, 0),
         0,
       );
       out.info(metadata.title);
       out.info(`  lessons: ${lessons}${paging.totalItems > lessons ? ` (page reports ${paging.totalItems})` : ""}`);
+      if (chapters.length > 0) out.info(`  single page: ${chapters.length} chapter(s)`);
       out.info(`  topics: ${topics}`);
-      out.info(`  planned requests: ${1 + lessons + topics} (cache hits are free)`);
+      out.info(`  planned requests: ${1 + (chapters.length > 0 ? 0 : lessons + topics)} (cache hits are free)`);
       return;
     }
 

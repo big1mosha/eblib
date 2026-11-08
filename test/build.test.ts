@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { validateEpub } from "@epubkit/core";
+import { Epub, validateEpub } from "@epubkit/core";
 import { buildBook } from "../src/build/book.ts";
 import { parseRange, selectStructure } from "../src/build/select.ts";
 import { slugify } from "../src/build/book.ts";
@@ -170,6 +170,66 @@ describe("buildBook", () => {
 
     expect(result.stats.topics).toBe(0);
     expect(result.stats.chapters).toBe(2);
+  });
+
+  test("builds a single-page book with an imprint page and an unheaded opening", async () => {
+    const dir = await tempDir();
+    const workspace = Workspace.create(dir, "45", {
+      courseId: "45",
+      source: "https://example.test/books/one-page/",
+      metadata: { title: "এক পৃষ্ঠার বই", authors: ["লেখক এক"], subjects: [] },
+      sections: [
+        {
+          title: "",
+          lessons: [
+            {
+              id: "45-p1",
+              title: "শুরু",
+              url: "https://example.test/books/one-page/#p1",
+              topicCount: 0,
+              topics: [],
+              heading: false,
+              inToc: false,
+            },
+            { id: "45-p2", title: "॥১॥", url: "https://example.test/books/one-page/#p2", topicCount: 0, topics: [] },
+          ],
+        },
+      ],
+      hasSections: false,
+      singlePage: true,
+      introHtml: "<p>প্রচ্ছদ: একজন। প্রকাশক: একজন।</p>",
+      paging: { totalItems: 2, totalPages: 1, visibleLessons: 2, complete: true },
+      items: {},
+      images: {},
+      warnings: [],
+    });
+    await workspace.writeContent("lesson", "45-p1", "<p>শুরুর লেখা।</p>");
+    await workspace.writeContent("lesson", "45-p2", "<p>প্রথম অধ্যায়।</p>");
+
+    const outDir = await tempDir();
+    const result = await buildBook({
+      workspace,
+      outDir,
+      cover: "none",
+      fonts: [],
+      warn: () => {},
+    });
+
+    expect(result.stats.chapters).toBe(2);
+    const data = new Uint8Array(await readFile(result.file));
+    const epub = Epub.fromBytes(data);
+
+    const imprint = epub.readText("OEBPS/text/intro-001.xhtml");
+    expect(imprint).toContain("প্রচ্ছদ: একজন");
+    const spine = epub.spineItems().map((item) => item.path);
+    expect(spine.indexOf("OEBPS/text/intro-001.xhtml")).toBeLessThan(spine.indexOf("OEBPS/nav.xhtml"));
+
+    const opening = epub.readText("OEBPS/text/ch-001.xhtml");
+    expect(opening).toContain("শুরুর লেখা");
+    expect(opening).not.toContain("chapter-title");
+    expect(JSON.stringify(epub.toc())).not.toContain("শুরু");
+    expect(JSON.stringify(epub.toc())).not.toContain("প্রচ্ছদ: একজন");
+    expect(validateEpub(data).ok).toBe(true);
   });
 
   test("fails when content is missing unless partial builds are allowed", async () => {

@@ -4,6 +4,7 @@ import {
   coverFromBytes,
   generateCover,
   type CoverAsset,
+  type FontInput,
 } from "@epubkit/core";
 import { exists } from "../io.ts";
 
@@ -17,6 +18,8 @@ export interface CoverOptions {
   imprint?: string;
   /** Local copy of the site cover, if one was downloaded. */
   siteCover?: string;
+  /** Fonts to embed in a generated SVG cover. */
+  fonts?: FontInput[];
   warn: (message: string) => void;
 }
 
@@ -68,5 +71,6 @@ function generated(options: CoverOptions): Promise<CoverAsset> {
     authors: options.authors,
     series: options.series,
     imprint: options.imprint,
+    fonts: options.fonts,
   });
 }
